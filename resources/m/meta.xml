@@ -1,0 +1,6 @@
+<meta>
+    <info author="YourName" type="gamemode" name="My Server" description="My first MTA server" />
+    <script src="script.lua" type="server"/>
+    <script src="c_powerup.lua" type="client" cache="false"/>
+    <script src="s_powerup.lua" type="server"/>
+</meta>

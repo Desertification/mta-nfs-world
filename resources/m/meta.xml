@@ -3,4 +3,8 @@
     <script src="script.lua" type="server"/>
     <script src="c_powerup.lua" type="client" cache="false"/>
     <script src="s_powerup.lua" type="server"/>
+
+    <file src="powerup.wav"/>
+    <file src="IconPowerups_Juggernaut.png"/>
+    <file src="IconPowerups_Juggernaut_r.png"/>
 </meta>

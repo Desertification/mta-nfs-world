@@ -29,24 +29,46 @@ end
 function activatePowerup(powerup)
     setPowerupRecharging(powerup, true)
     triggerServerEvent("onPowerupRequested", resourceRoot, powerup)
-    playSFX("script", 192, 2, false)
+    --playSFX("script", 192, 2, false)
+    playSound("powerup.wav")
+    --temp
+    activateJuggernaut(vehicle)
+    --temp
 end
 
 function stopPowerup(powerup)
     --todo powerdown sound
     --todo visual
+    --temp
+    stopJuggernaut(vehicle)
+    --temp
 end
 
 function rechargePowerup(powerup)
     setPowerupRecharging(powerup, false)
+    --temp
+    removeEventHandler("onClientRender", root, drawJuggernautR)
+    --temp
 end
 
 function activateJuggernaut(vehicle)
     playSFX("genrl", 32, 55, false)
+    addEventHandler("onClientRender", root, drawJuggernaut)
 end
 
-function endJuggernaut(vehicle)
-    
+function drawJuggernaut()
+    local screenWidth,screenHeight = guiGetScreenSize()
+    dxDrawImage( screenWidth -50, screenHeight -50, 50, 50, "IconPowerups_Juggernaut.png")
+end
+
+function drawJuggernautR()
+    local screenWidth,screenHeight = guiGetScreenSize()
+    dxDrawImage( screenWidth -50, screenHeight -50, 50, 50, "IconPowerups_Juggernaut_r.png")
+end
+
+function stopJuggernaut(vehicle)
+    removeEventHandler("onClientRender", root, drawJuggernaut)
+    addEventHandler("onClientRender", root, drawJuggernautR)
 end
 
 addEventHandler("onClientKey", root, onClientKey)

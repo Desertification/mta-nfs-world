@@ -1,0 +1,6 @@
+<meta>
+    <info author="Desertification" version="0.1.0" name="Race Camera" description="Adds a static camera fit for races" type="script"/>
+    <script src="camera.lua" type="client" cache="false" validate="true"/>
+    <script src="movingaverage.lua" type="client" cache="false" validate="true"/>
+    <script src="gonometry.lua" type="client" cache="false" validate="true"/>
+</meta>

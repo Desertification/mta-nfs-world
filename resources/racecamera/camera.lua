@@ -10,42 +10,52 @@ local _sqrt = math.sqrt
 local RADIUS_MAX = 11
 local RADIUS_MIN = 6
 local RADIUS_NEUTRAL = 7
+local ROTATION_FILTER_LENGTH = 15
+local RADIUS_FILTER_LENGTH = 20
 
+local playerVehicle = nil
 local getSmoothRotationX = nil
 local getSmoothRotationY = nil
 local getSmoothRotationZ = nil
 local getSmoothRadius = nil
-
-local ROTATION_FILTER_LENGTH = 15
-local RADIUS_FILTER_LENGTH = 20
 
 local antiMovingSickness = false
 if getPlayerName(_localPlayer) == "maxtorcd55" then
     antiMovingSickness = true
 end
 
-local raceCamera = false
-local playerVehicle = nil
+local raceCameraInitialized = false
+local raceCameraActive = false
+local raceCameraLastUsed = false
 local previousVelocity = 0
 
+--only for script restarts because raceCamera could still be activated
 setCameraTarget(_localPlayer, _localPlayer)
 
 local function enableRaceCamera(vehicle)
-    raceCamera = true
+    raceCameraActive = true
 end
 
 local function disableRaceCamera()
-    raceCamera = false
-    setCameraTarget(_localPlayer, _localPlayer)
+    if raceCameraActive then
+        raceCameraActive = false
+        setCameraTarget(_localPlayer, _localPlayer)
+    end
 end
 
-local function initRaceCamera(vehicle)
-    playerVehicle = vehicle
+local function initRaceCamera()
+    if not (getPedOccupiedVehicleSeat(_localPlayer) == 0) then
+        error("Player must be driving as vehicle")
+    end
+
+    playerVehicle = getPedOccupiedVehicle(_localPlayer)
 
     getSmoothRotationX = movingAverageFactory(ROTATION_FILTER_LENGTH)
     getSmoothRotationY = movingAverageFactory(ROTATION_FILTER_LENGTH)
     getSmoothRotationZ = movingAverageFactory(ROTATION_FILTER_LENGTH)
     getSmoothRadius = movingAverageFactory(RADIUS_FILTER_LENGTH)
+
+    raceCameraInitialized = true
 end
 
 addEventHandler(
@@ -53,8 +63,8 @@ addEventHandler(
     _localPlayer,
     function(vehicle, seat)
         if seat == 0 then
-            initRaceCamera(vehicle)
-            if getCameraViewMode() == 5 then
+            initRaceCamera()
+            if raceCameraLastUsed then
                 enableRaceCamera()
             end
         end
@@ -85,54 +95,43 @@ bindKey(
     function(key, keyState, ...)
         if getPedOccupiedVehicle(_localPlayer) and getPedOccupiedVehicleSeat(_localPlayer) == 0 then
             if getCameraViewMode() == 0 then
-                if raceCamera then
+                if raceCameraActive then
                     disableRaceCamera()
                     setCameraViewMode(4)
+                    raceCameraLastUsed = false
                 else
                     playSFX("genrl", 52, 14, false)
                     enableRaceCamera()
+                    raceCameraLastUsed = true
                 end
             end
             if getCameraViewMode() == 5 then
                 disableRaceCamera()
+                raceCameraLastUsed = false
             end
         end
     end
 )
 
+--optimized for performance, do NOT refactor!
 addEventHandler(
     "onClientPreRender",
     _root,
     function(deltaTime)
-        if raceCamera then
-            local x, y, z = getElementPosition(playerVehicle)
-            local rx, ry, rz = getElementRotation(playerVehicle)
-            local vx, vy, vz = getElementVelocity(playerVehicle)
-            local velocity = _sqrt(vx * vx + vy * vy + vz * vz)
-
-            local acceleration = (velocity - previousVelocity) / (deltaTime / 1000)
-            previousVelocity = velocity
-
-            local radius = RADIUS_NEUTRAL
-
-            if not antiMovingSickness then
-                radius = _min(RADIUS_MAX, _max(RADIUS_MIN, RADIUS_NEUTRAL + (6 * acceleration)))
-                radius = getSmoothRadius(radius)
+        if raceCameraActive then
+            --only for when script restarts and player is still in a vehicle
+            if not raceCameraInitialized then
+                initRaceCamera()
             end
 
-            local angleZ = _rad(rz - 90)
-            local angleX = _rad(rx + 90)
-
-            -- smooth camera rotation
+            --generate position of camera relative to the vehicle
+            local rx, ry, rz = getElementRotation(playerVehicle)
+            local angleZ = _rad(rz - 90) --vehicle orientation correction
+            local angleX = _rad(rx + 90) --vehicle orientation correction
             local sinX = _sin(angleX)
-            local cosX = _cos(angleX)
-            local sinZ = _sin(angleZ)
-            local cosZ = _cos(angleZ)
-
-            local crx = sinX * cosZ
-            local cry = sinX * sinZ
-            local crz = cosX
-
+            local crx = sinX * _cos(angleZ)
+            local cry = sinX * _sin(angleZ)
+            local crz = _cos(angleX)
             if antiMovingSickness then
                 crz = getSmoothRotationZ(crz)
             else
@@ -140,6 +139,24 @@ addEventHandler(
                 cry = getSmoothRotationY(cry)
                 crz = getSmoothRotationZ(crz)
             end
+
+            --generate distance between camera and vehicle
+            local radius = RADIUS_NEUTRAL
+            if not antiMovingSickness then
+                --change camera distance based on acceleration
+                local vx, vy, vz = getElementVelocity(playerVehicle)
+                local velocity = _sqrt(vx * vx + vy * vy + vz * vz)
+                local acceleration = (velocity - previousVelocity) / (deltaTime / 1000)
+                previousVelocity = velocity
+                radius = _min(RADIUS_MAX, _max(RADIUS_MIN, RADIUS_NEUTRAL + (6 * acceleration)))
+                radius = getSmoothRadius(radius)
+                --prevent shaking camera at max velocity of vehicle
+                if radius < RADIUS_NEUTRAL + 0.03 and radius > RADIUS_NEUTRAL - 0.03 then
+                    radius = RADIUS_NEUTRAL
+                end
+            end
+
+            local x, y, z = getElementPosition(playerVehicle)
 
             -- set camera position on edge of sphere
             local cx = x + radius * crx
